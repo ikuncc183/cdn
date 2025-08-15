@@ -11,8 +11,10 @@ CF_API_TOKEN = os.environ.get('CF_API_TOKEN')
 CF_ZONE_ID = os.environ.get('CF_ZONE_ID')
 # 需要更新的域名，例如 'sub.yourdomain.com'
 DOMAIN_NAME = os.environ.get('CF_DOMAIN_NAME')
-# (可选) 需要解析的IP数量
-MAX_IPS = os.environ.get('MAX_IPS')
+
+# --- 在此处直接设置要解析的 IP 数量 ---
+# 如果您想解析 5 个 IP，就写 5。如果想解析全部，请将此行设置为 MAX_IPS = None
+MAX_IPS = 3
 
 # --- 优选 IP 的 API 地址 ---
 IP_API_URL = 'https://addressesapi.090227.xyz/ip.164746.xyz'
@@ -52,21 +54,16 @@ def get_preferred_ips():
             
             print(f"成功获取并解析了 {len(valid_ips)} 个优选 IP。")
 
-            # --- 增强的诊断信息 ---
-            print("--- 诊断信息 ---")
-            print(f"脚本接收到的 MAX_IPS 值为: '{MAX_IPS}'")
-            print("-----------------")
-
-            if MAX_IPS and MAX_IPS.isdigit():
-                max_ips_count = int(MAX_IPS)
-                if 0 < max_ips_count < len(valid_ips):
-                    print(f"根据 MAX_IPS={max_ips_count} 的设置，将只使用前 {max_ips_count} 个 IP。")
-                    return valid_ips[:max_ips_count]
+            # --- 根据脚本内设置的 MAX_IPS 变量限制 IP 数量 ---
+            if isinstance(MAX_IPS, int) and MAX_IPS > 0:
+                if MAX_IPS < len(valid_ips):
+                    print(f"根据脚本内 MAX_IPS={MAX_IPS} 的设置，将只使用前 {MAX_IPS} 个 IP。")
+                    return valid_ips[:MAX_IPS]
                 else:
-                    print(f"MAX_IPS 设置为 {max_ips_count}，但该值无效或大于/等于总IP数({len(valid_ips)})，因此将使用所有IP。")
+                    print(f"脚本内 MAX_IPS 设置为 {MAX_IPS}，但该值大于/等于总IP数({len(valid_ips)})，将使用所有IP。")
                     return valid_ips
             else:
-                print("未设置或无效 MAX_IPS，将使用所有获取到的 IP。")
+                print("脚本内未设置或无效 MAX_IPS，将使用所有获取到的 IP。")
                 return valid_ips
 
         except requests.RequestException as e:
