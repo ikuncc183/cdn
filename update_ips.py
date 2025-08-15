@@ -2,6 +2,7 @@
 import os
 import requests
 import json
+import time # 引入 time 模块用于实现延迟
 
 # --- 从 GitHub Secrets 读取配置 ---
 # Cloudflare API Token，需要有 DNS 编辑权限
@@ -26,39 +27,54 @@ HEADERS = {
 }
 
 def get_preferred_ips():
-    """从 API 获取优选 IP 列表，并根据 MAX_IPS 限制数量"""
+    """从 API 获取优选 IP 列表，并加入了延迟重试机制"""
     print(f"正在从 {IP_API_URL} 获取优选 IP...")
-    try:
-        response = requests.get(IP_API_URL, timeout=10)
-        response.raise_for_status()
-        lines = response.text.strip().split('\n')
-        
-        valid_ips = []
-        for line in lines:
-            if line.strip():
-                ip_part = line.split('#')[0].strip()
-                if ip_part:
-                    valid_ips.append(ip_part)
-
-        if not valid_ips:
-            print("警告: 未能从 API 获取到任何有效的 IP 地址。")
-            return []
+    
+    # --- 新增：重试逻辑 ---
+    retry_count = 3 # 总共尝试3次
+    retry_delay = 10 # 每次重试前等待10秒
+    
+    for attempt in range(retry_count):
+        try:
+            response = requests.get(IP_API_URL, timeout=10)
+            response.raise_for_status() # 如果请求失败 (例如 429, 500等), 则会抛出异常
             
-        print(f"成功获取并解析了 {len(valid_ips)} 个优选 IP。")
+            # --- 如果请求成功，则处理数据并返回 ---
+            lines = response.text.strip().split('\n')
+            valid_ips = []
+            for line in lines:
+                if line.strip():
+                    ip_part = line.split('#')[0].strip()
+                    if ip_part:
+                        valid_ips.append(ip_part)
 
-        # --- 根据 MAX_IPS 变量限制 IP 数量 ---
-        if MAX_IPS and MAX_IPS.isdigit():
-            max_ips_count = int(MAX_IPS)
-            if 0 < max_ips_count < len(valid_ips):
-                print(f"根据 MAX_IPS={max_ips_count} 的设置，将只使用前 {max_ips_count} 个 IP。")
-                return valid_ips[:max_ips_count] # 按顺序截取
-        
-        print("未设置或无效 MAX_IPS，将使用所有获取到的 IP。")
-        return valid_ips
+            if not valid_ips:
+                print("警告: 从 API 获取到的内容为空或无效。")
+                return [] # 如果 API 返回空内容，直接返回
+            
+            print(f"成功获取并解析了 {len(valid_ips)} 个优选 IP。")
 
-    except requests.RequestException as e:
-        print(f"错误: 请求优选 IP 时发生错误: {e}")
-        return []
+            if MAX_IPS and MAX_IPS.isdigit():
+                max_ips_count = int(MAX_IPS)
+                if 0 < max_ips_count < len(valid_ips):
+                    print(f"根据 MAX_IPS={max_ips_count} 的设置，将只使用前 {max_ips_count} 个 IP。")
+                    return valid_ips[:max_ips_count]
+                else:
+                    print(f"MAX_IPS 设置为 {max_ips_count}，但该值无效或大于/等于总IP数({len(valid_ips)})，将使用所有IP。")
+            
+            return valid_ips
+
+        except requests.RequestException as e:
+            # --- 如果请求失败 ---
+            print(f"错误: 请求优选 IP 时发生错误: {e}")
+            if attempt < retry_count - 1:
+                print(f"将在 {retry_delay} 秒后进行第 {attempt + 2} 次尝试...")
+                time.sleep(retry_delay)
+            else:
+                print("已达到最大重试次数，获取 IP 失败。")
+                return [] # 所有重试都失败后，返回空列表
+
+    return [] # 循环结束后以防万一
 
 def get_existing_dns_records():
     """获取当前域名已有的 A 记录"""
