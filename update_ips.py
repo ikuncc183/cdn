@@ -107,7 +107,7 @@ def create_dns_record(ip):
         'type': 'A',
         'name': DOMAIN_NAME,
         'content': ip,
-        'ttl': 1,
+        'ttl': 60, # 已修改: 60 是 Cloudflare 允许的最小 TTL (秒)。1 会被解释为 "自动"。
         'proxied': False
     }
     try:
