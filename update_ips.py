@@ -1,4 +1,3 @@
-# update_ips.py
 import os
 import requests
 import json
@@ -13,11 +12,11 @@ CF_ZONE_ID = os.environ.get('CF_ZONE_ID')
 DOMAIN_NAME = os.environ.get('CF_DOMAIN_NAME')
 
 # --- 在此处直接设置要解析的 IP 数量 ---
-# 如果您想解析 5 个 IP，就写 5。如果想解析全部，请将此行设置为 MAX_IPS = None
+# 注意: 当前脚本逻辑已被修改为只获取第 31 行的 IP，因此此处的 MAX_IPS 变量不再生效。
 MAX_IPS = 3
 
 # --- 优选 IP 的 API 地址 ---
-IP_API_URL = 'https://addressesapi.090227.xyz/ip.164746.xyz'
+IP_API_URL = 'https://addressesapi.090227.xyz/ip'
 
 # --- Cloudflare API 端点 ---
 CF_API_BASE_URL = f"https://api.cloudflare.com/client/v4/zones/{CF_ZONE_ID}/dns_records"
@@ -29,7 +28,7 @@ HEADERS = {
 }
 
 def get_preferred_ips():
-    """从 API 获取优选 IP 列表，并加入了延迟重试机制"""
+    """从 API 的第 31 行获取优选 IP"""
     print(f"正在从 {IP_API_URL} 获取优选 IP...")
     
     retry_count = 3
@@ -41,30 +40,25 @@ def get_preferred_ips():
             response.raise_for_status()
             
             lines = response.text.strip().split('\n')
-            valid_ips = []
-            for line in lines:
-                if line.strip():
-                    ip_part = line.split('#')[0].strip()
-                    if ip_part:
-                        valid_ips.append(ip_part)
 
-            if not valid_ips:
-                print("警告: 从 API 获取到的内容为空或无效。")
+            # 检查 API 响应是否有足够的行数
+            if len(lines) < 31:
+                print(f"错误: API 响应的行数少于 31 行 (总共 {len(lines)} 行)，无法获取指定的 IP。")
                 return []
-            
-            print(f"成功获取并解析了 {len(valid_ips)} 个优选 IP。")
 
-            # --- 根据脚本内设置的 MAX_IPS 变量限制 IP 数量 ---
-            if isinstance(MAX_IPS, int) and MAX_IPS > 0:
-                if MAX_IPS < len(valid_ips):
-                    print(f"根据脚本内 MAX_IPS={MAX_IPS} 的设置，将只使用前 {MAX_IPS} 个 IP。")
-                    return valid_ips[:MAX_IPS]
-                else:
-                    print(f"脚本内 MAX_IPS 设置为 {MAX_IPS}，但该值大于/等于总IP数({len(valid_ips)})，将使用所有IP。")
-                    return valid_ips
-            else:
-                print("脚本内未设置或无效 MAX_IPS，将使用所有获取到的 IP。")
-                return valid_ips
+            # 精确获取第 31 行 (列表索引为 30)
+            target_line = lines[30]
+            
+            # 从目标行解析 IP
+            if target_line.strip():
+                ip_part = target_line.split('#')[0].strip()
+                if ip_part:
+                    print(f"成功从第 31 行获取并解析了 IP: {ip_part}")
+                    return [ip_part] # 返回包含这一个 IP 的列表
+
+            # 如果第 31 行为空或无法解析出 IP
+            print("错误: 第 31 行为空或无法解析出有效的 IP 地址。")
+            return []
 
         except requests.RequestException as e:
             print(f"错误: 请求优选 IP 时发生错误: {e}")
@@ -113,7 +107,7 @@ def create_dns_record(ip):
         'type': 'A',
         'name': DOMAIN_NAME,
         'content': ip,
-        'ttl': 60,
+        'ttl': 1,
         'proxied': False
     }
     try:
