@@ -16,7 +16,7 @@ DOMAIN_NAME = os.environ.get('CF_DOMAIN_NAME')
 MAX_IPS = 3
 
 # --- 优选 IP 的 API 地址 ---
-IP_API_URL = 'https://addressesapi.090227.xyz/ip'
+IP_API_URL = 'https://raw.githubusercontent.com/ikuncc183/cfipcaiji/refs/heads/main/ip.txt'
 
 # --- Cloudflare API 端点 ---
 CF_API_BASE_URL = f"https://api.cloudflare.com/client/v4/zones/{CF_ZONE_ID}/dns_records"
