@@ -13,7 +13,7 @@ DOMAIN_NAME = os.environ.get('CF_DOMAIN_NAME')
 
 # --- 在此處直接設置要解析的 IP 數量 ---
 # 修改此處的數字來決定要獲取多少個優選 IP
-MAX_IPS = 15
+MAX_IPS = 40
 
 # --- 優選 IP 的來源地址 ---
 IP_API_URL = 'https://raw.githubusercontent.com/ikuncc183/cfipcaiji/refs/heads/main/ip.txt'
